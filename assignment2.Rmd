@@ -1,0 +1,408 @@
+---
+title: "Assessing The Effectiveness of Display Advertising"
+output: pdf_document
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+# 1. Introduction
+
+Star Digital designed an online display advertising campaign run on six websites
+with the primary objective of increasing subscription package sales. It also was
+interested in website visits as a proxy for measuring brand impact. Having been 
+aware of the issues with click-through and view-through-based ad effectiveness 
+metrics, Star Digital designed an experiment that measured the incremental 
+impact of advertising on the outcome of interest, i.e. sales.
+
+# 2. Experimental Design Overview
+
+## 2. A. Experiment Setup
+
+1. Before the first campaign ad was to be served to a user, s/he was assigned 
+randomly to either the test group or the control group.
+    a. The consumers in the control group were shown an advertisement for a 
+       charity organization in place of the advertisement for Star Digital,
+       whenever their online actions prompted the serving of an ad.
+    b. Banner advertising is typically served through ad-serving software,which 
+       determines whether a consumer browsing on a particular web page is 
+       eligible to be shown that ad or on.
+  
+2. The ad-serving software was programmed to then check if the consumer was in
+the predetermined control group or the test group.
+
+3. If the consumer was in the test group, the advertisement for Star Digital
+would be shown.
+
+4. If the consumer was in the control group, the software would intervene and
+replace the Star Digital advertisement with an advertisement for a charity
+organization.
+
+## 2. B. Group Size Considerations
+
+Random assignment of consumers - expensive option
+
+1. since charity ads cost the advertiser as much as the campaign ads, 
+since the advertiser paid for advertisements served to the control group 
+as well.
+
+2. There was also an opportunity cost incurred when a consumer who could 
+have been served an advertisement for Star Digital’s campaign, and who 
+could have been influenced by these advertisements to sign up for its 
+subscription service, was shown charity advertisements instead.
+  
+### Factors based on which fraction of users assigned to the control group
+
+1. Baseline Conversion rate
+
+If users naturally convert at high rates, then the fraction can be small 
+because the control users will generate enough conversion events to detect 
+statistically significant campaign impact.
+    
+2. campaign Reach
+
+Showing advertisements to more users increases the number of control group
+conversions, assuming a fixed baseline conversion rate, and thus reduces 
+the control group’s fraction.
+    
+3. The minimum lift that the advertiser cares to detect
+
+Choosing the smallest lift yielding positive ROI minimizes the cost of 
+the charity ads.
+
+4. Power of the experiment
+
+An experiment achieves greater power if a larger number of consumers are 
+placed in the control group.
+
+Star Digital considered these factors and determined that in its experiment, 
+10 percent of the consumers would be placed in the control group, and the 
+remaining 90 percent would be placed in the test group.
+
+## 2. C. Sampling
+
+For the purpose of analysis, a sample was drawn since the original database was 
+very large. Of the analysis sample, 50 percent consisted of people who had 
+chosen to purchase the subscription package of Star Digital, while the remaining
+50 percent consisted of those who had not purchased the package. 
+
+However, whether the person belonged to the control group or test group was 
+random in this sample.
+
+
+# 3. Threats to Causal Inference
+
+## 3. A. Selection Bias
+
+we negate the effects of selection bias, as the selection process is random in 
+both treatment-control assignments and sample data selection. 
+
+As a part of our analysis, we will further validate this by randomized testing.
+
+
+## 3. B. Omitted Variable Bias
+
+Omitted variables bias may occur in the experiment, when an external variable 
+is correlated with the impressions. 
+For example: Internet speed connectivity can be correlated with the number of 
+impressions a particular user encounters and their purchase activity.
+
+
+## 3. C. Simultaneity Bias
+
+Since there is no reason to believe that an user that purchases a subscription 
+would also cause an increase in views of the ad. 
+It is safe to say there is no simultaneity bias in the experiment.
+
+## 3. D. Measurement Error
+
+Impressions are the only variable that is captured at an user level and which is
+not that difficult to track. It is safe to say there is no measurement error.
+
+
+## 3. E. SUTVA Assumption Violation
+
+We assume that consumers are unaware that they are participating in the 
+experiment because showing them ads that grab their attention does not provide 
+value to them.
+
+
+# 4. Data Exploration and Overview
+
+## 4. A. Importing relevant packages
+
+```{r}
+library(pwr)
+library(Hmisc)
+library(ggplot2)
+library(gmodels)
+library(reshape)
+library(dplyr)
+```
+
+## 4. B. Importing the data set
+
+```{r}
+star_digital = read.csv("star_digital.csv")
+```
+
+## 4. C. Data description
+
+```{r}
+head(star_digital)
+```
+```{r}
+str(star_digital)
+```
+
+## 4. D. Missing Values Inspection
+
+```{r}
+colSums(is.na(star_digital))
+```
+
+As observed from the above, none of the columns in our data frame contains 
+missing values.
+
+## 4. E. Data Transformations
+
+After loading the data set, we observed that we have not calculated overall 
+total impressions that a treatment or control group user have seen across all 
+the six websites.
+
+Hence, we created a new variable "total_imp" which captures the overall
+impression for the user.
+
+```{r}
+star_digital$total_imp <- star_digital$imp_1 + star_digital$imp_2 + 
+  star_digital$imp_3 + star_digital$imp_4 + star_digital$imp_5 + star_digital$imp_6
+```
+
+We will also create another variable "imp_1to5" which captures the overall 
+impression for an user for sites 1-5.
+
+```{r}
+star_digital$imp_1to5 <- star_digital$imp_1 + star_digital$imp_2 +
+  star_digital$imp_3 + star_digital$imp_4 + star_digital$imp_5
+```
+
+Hence, we have created two new variables “total_imp” which catches overall 
+impression for all the sites and “imp_1to5” which catches overall impression 
+of all the sites except site 6.
+
+## 4. F. Distribution detection:
+
+Checking the distributions of variables across the data to look for any anomaly
+
+```{r}
+star_digital_hist <- star_digital[c("imp_1","imp_2","imp_3","imp_4"
+,"imp_5","imp_6")]
+hist.data.frame(star_digital_hist)
+```
+We can see that all the variables are right skewed with no abnormal 
+distribution.
+
+## 4. G. Outlier Treatment:
+
+Let's look for outliers in out data.
+
+```{r}
+meltData <- melt(select(star_digital, -c(1:4)))
+p <- ggplot(meltData, aes(factor(variable), value))
+p + geom_boxplot() + facet_wrap(~variable, scale="free")
+```
+We did observe some outliers in the impression data, but we are not applying any
+treatment for the same as the treatment might distort the proportion between 
+test and control supports and may lead to non-interpretative results.
+
+# 5. Experiment Quality Check
+
+## 5. A. Checking for validity of Randomization
+
+The first thing that needs to be done,  when we receive the results of a 
+particular experiment is to check whether the randomization has been done 
+properly or not.  Specifically, we have to check if the control group and the
+treatment group are identical, except for one being treated.
+
+Here, we check whether an average person in each group saw the same number of 
+impressions(those in control group saw the "charity" ad whereas those in 
+treatment saw an advertisement for Star Digital's campaign.)
+
+```{r}
+control = star_digital[star_digital$test == 0, ]
+treatment = star_digital[star_digital$test == 1, ]
+
+t.test(control$total_imp, treatment$total_imp)
+```
+
+As observed from the above, an customer in control group has on an average 7.929
+impressions, whereas an customer in treatment group has on an average 7.869 
+impressions.
+
+These numbers are different, but since p-value is large, we don't have to worry
+about the difference ; in other words, the averages are not statistically
+different which implies that our randomization is probably fine.
+
+## 5. B. Power of the test
+
+Size of the control and treatment group:
+
+```{r}
+control_count = nrow(control)
+control_count
+```
+```{r}
+treatment_count = nrow(treatment)
+treatment_count
+```
+
+For the current experiment, the treatment and control group sizes are around 
+23K and 2.6K respectively.
+
+Given the current sample size, we can identify the minimum effect size that can
+be observed.
+
+Assumptions:
+
+1. alpha(i.e.incorrectly rejecting the assumption that the two groups are 
+indeed different) : 0.05
+
+2. power(probability of correctly rejecting the null hypothesis) : 0.8
+  
+
+Here, we are using a two sample two proportions test
+
+```{r}
+pwr.2p2n.test(n1 = control_count , n2 = treatment_count , sig.level = .05 ,
+              power = .8)
+```
+
+Based on the above conditions, the minimum lift that can be detected is at 5.7%.
+
+
+# 6. Data Analysis
+
+## PART 1: Measuring effectiveness of ads
+
+Next, we want to see if our ads are effective. To do so, we compare the purchase
+rate of an average customer in control to an average customer in treatment.
+
+If our ads are effective, the average purchase rate in treatment should be 
+higher than that of control, and the difference should be
+significant:
+
+Model : Purchase = a + b(test)
+
+Variable a is the intercept and corresponds to purchase rate of those in 
+control. Coefficient b is the coefficient of treatment and shows us how much 
+treatment increases the purchase rate of the customers. If b is positive and 
+significant, we can conclude that our ads are working. 
+
+Now, lets run this model.
+
+```{r}
+summary(glm(purchase ~ test, data = star_digital ))
+```
+
+As we can see, the average purchase rate of customers in control is 0.486 
+whereas as the average purchase rate of customers is treatment is 0.505.
+
+Since the p-value is small (it is smaller than 0.1, but it’s not as
+small as we ideally like it to be i.e. 0.05), we conclude that the difference 
+is somewhat significant.
+
+Therefore, online advertising seem to be effective.
+
+
+## PART 2: Measuring effect of ad frequency
+
+We should “control” for the number of impressions, and then see how much being
+exposed to real ads increases the purchase probability on top of (in addition 
+to) just receiving more impressions. Therefore, our model becomes
+
+Model : purchase = a + b1(test) + b2(total_imp) + b3(treatment * total_imp)
+
+In this formulation, b2 shows how much “active customers” customers that receive
+more impressions (charity ads or real ads) are more likely to purchase the 
+product. Coefficient b3 shows how much those who saw relevant real ads become 
+more likely to purchase the product as the number of ads increases. 
+
+Now, lets run this model.
+
+```{r}
+summary(glm(purchase ~ test * total_imp, data = star_digital))
+```
+
+As we can see, both coefficients are positive and significant. The fact that the
+coefficient of total_imp is positive and significant implies that even customers
+who saw charity ad are more likely to purchase.
+
+But, we also get a positive(i.e. 0.001) and significant(p-value < 0.05) 
+coefficient for test:total_imp (i.e., treatment * tot_imp) which implies 
+that when the ads are real, showing more ads increases the probability of 
+purchase even more (on top of the “active user” effect that is already captured 
+in the model). 
+
+So, yes, showing more ads is effective.
+
+## PART 3: Comparing Sites 1-5 to Site 6
+
+Finally, we compare the effect of ads on site 6 to ads on sites 1-5. 
+
+To do this, we use a linear model and look at the coefficient of an impression 
+on sites 1-5, and see if the coefficient is larger than the coefficient of 
+site 6.
+
+purchase = a + b1(#impression for site 1-5) + b2(#impression for site 6)
+
+Note: The model below  is regressed on filtered data i.e. test = 1, 
+i.e treated group.
+
+```{r}
+summary(glm(purchase ~ imp_1to5 + imp_6, data = treatment))
+```
+Among the users, that were subjected to Star Digital Ad, keeping site 6 
+impressions constant, each additional ad impression in the site 1-5 increases 
+the odds of purchase by 0.0038.
+
+Among the users, that were subjected to Star Digital Ad, keeping site 1-5 
+impressions constant, each additional ad impression in the site 6 increases 
+the odds of purchase by 0.0023.
+
+### Calculating ROI
+
+a. cost for ads in site1-5 : $25 / 1000 impressions
+b. cost for ads in site 6  : $20 / 1000 impressions
+
+And, each purchase results in a lifetime contribution of $1200 for Star Digital.
+
+### For Sites 1-5:
+Revenue for 1000 impressions = 1000 * 0.0038 * 1200 = $4560
+Cost = $25
+ROI = $182
+
+### For Site 6:
+Revenue for 1000 impressions = 1000 * 0.00237 * 1200 = $2844
+Cost = $20
+ROI = $143
+
+Ads on sites 1-5 gives a better return on investment as compared to on site 6.
+So, it would be a wise decision for Star Digital to put its advertising dollars 
+in site 6.
+
+# 7. Conclusion
+
+1. Online advertising is effective.
+
+    Hence, showing relevant ads (ads related to Star Digital) is a wise decision 
+    to boost sales.
+    
+2. Showing more ads is effective.
+
+    Hence, the same advertisement could be shown multiple times to enhance the 
+    odds of purchase and in turn sales.
+    
+3. Showing ads on site 1-5 is more effective than ads on site 6.
+
+    
