@@ -2,8 +2,9 @@
 
 A causal inference project/case study.
 This project includes:
-* R Markdown File - It contains R Code, Process Flow, and Results.
 * Project Setup - Talks a lil about the project background and also showcases the project guide.
+* A R Markdown File named as "code.rmd" - It contains R Code, Process Flow, and Results.
+* A Project Report - PDF version of the Markdown file.
 
 This project was done using a Stanford Business Case study.
 
