@@ -8,8 +8,11 @@ This project includes:
 This project was done using a Stanford Business Case study.
 
 Name: Star Digital
+
 Author: Sridhar Narayanan, Taylan Yildiz
+
 Year : 2013
+
 Link: https://www.gsb.stanford.edu/faculty-research/case-studies/star-digital
 
 Please check out the link, if you wan to know more about the case and data associated with it.
